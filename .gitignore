@@ -46,3 +46,9 @@ lerna-debug.log*
 .tool-versions
 
 /prisma/migrations/*
+
+# SQLite database files
+prisma/data/*.db
+prisma/data/*.db-journal
+prisma/data/*.db-wal
+!prisma/data/.gitkeep

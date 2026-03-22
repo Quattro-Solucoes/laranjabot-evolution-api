@@ -1,4 +1,4 @@
-import { TriggerOperator, TriggerType } from '@prisma/client';
+import { TriggerOperator, TriggerType } from '@api/types/db-enums';
 
 /**
  * Base DTO for all chatbot integrations

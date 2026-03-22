@@ -37,6 +37,8 @@ RUN apk update && \
 
 ENV TZ=America/Sao_Paulo
 ENV DOCKER_ENV=true
+ENV DATABASE_PROVIDER=sqlite
+ENV DATABASE_CONNECTION_URI=file:./data/evolution.db
 
 WORKDIR /evolution
 
@@ -53,7 +55,7 @@ COPY --from=builder /evolution/Docker ./Docker
 COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
 COPY --from=builder /evolution/tsup.config.ts ./tsup.config.ts
 
-ENV DOCKER_ENV=true
+RUN mkdir -p /evolution/prisma/data
 
 EXPOSE 8080
 

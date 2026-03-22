@@ -522,11 +522,10 @@ export class BaileysStartupService extends ChannelStartupService {
 
   private async getMessage(key: proto.IMessageKey, full = false) {
     try {
-      // Use raw SQL to avoid JSON path issues
       const webMessageInfo = (await this.prismaRepository.$queryRaw`
         SELECT * FROM "Message"
         WHERE "instanceId" = ${this.instanceId}
-        AND "key"->>'id' = ${key.id}
+        AND json_extract("key", '$.id') = ${key.id}
       `) as proto.IWebMessageInfo[];
 
       if (full) {
@@ -1640,7 +1639,7 @@ export class BaileysStartupService extends ChannelStartupService {
             const messages = (await this.prismaRepository.$queryRaw`
               SELECT * FROM "Message"
               WHERE "instanceId" = ${this.instanceId}
-              AND "key"->>'id' = ${searchId}
+              AND json_extract("key", '$.id') = ${searchId}
               LIMIT 1
             `) as any[];
             findMessage = messages[0] || null;
@@ -4734,13 +4733,12 @@ export class BaileysStartupService extends ChannelStartupService {
   private async updateMessagesReadedByTimestamp(remoteJid: string, timestamp?: number): Promise<number> {
     if (timestamp === undefined || timestamp === null) return 0;
 
-    // Use raw SQL to avoid JSON path issues
     const result = await this.prismaRepository.$executeRaw`
       UPDATE "Message"
       SET "status" = ${status[4]}
       WHERE "instanceId" = ${this.instanceId}
-      AND "key"->>'remoteJid' = ${remoteJid}
-      AND ("key"->>'fromMe')::boolean = false
+      AND json_extract("key", '$.remoteJid') = ${remoteJid}
+      AND json_extract("key", '$.fromMe') = 'false'
       AND "messageTimestamp" <= ${timestamp}
       AND ("status" IS NULL OR "status" = ${status[3]})
     `;
@@ -4759,12 +4757,11 @@ export class BaileysStartupService extends ChannelStartupService {
   private async updateChatUnreadMessages(remoteJid: string): Promise<number> {
     const [chat, unreadMessages] = await Promise.all([
       this.prismaRepository.chat.findFirst({ where: { remoteJid } }),
-      // Use raw SQL to avoid JSON path issues
       this.prismaRepository.$queryRaw`
-        SELECT COUNT(*)::int as count FROM "Message"
+        SELECT COUNT(*) as count FROM "Message"
         WHERE "instanceId" = ${this.instanceId}
-        AND "key"->>'remoteJid' = ${remoteJid}
-        AND ("key"->>'fromMe')::boolean = false
+        AND json_extract("key", '$.remoteJid') = ${remoteJid}
+        AND json_extract("key", '$.fromMe') = 'false'
         AND "status" = ${status[3]}
       `.then((result: any[]) => result[0]?.count || 0),
     ]);
@@ -4778,49 +4775,58 @@ export class BaileysStartupService extends ChannelStartupService {
 
   private async addLabel(labelId: string, instanceId: string, chatId: string) {
     const id = cuid();
+    const now = new Date().toISOString();
+    const initialLabels = JSON.stringify([labelId]);
 
     await this.prismaRepository.$executeRawUnsafe(
       `INSERT INTO "Chat" ("id", "instanceId", "remoteJid", "labels", "createdAt", "updatedAt")
-       VALUES ($4, $2, $3, to_jsonb(ARRAY[$1]::text[]), NOW(), NOW()) ON CONFLICT ("instanceId", "remoteJid")
-     DO
-      UPDATE
-          SET "labels" = (
-          SELECT to_jsonb(array_agg(DISTINCT elem))
-          FROM (
-          SELECT jsonb_array_elements_text("Chat"."labels") AS elem
-          UNION
-          SELECT $1::text AS elem
-          ) sub
-          ),
-          "updatedAt" = NOW();`,
-      labelId,
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT ("instanceId", "remoteJid")
+       DO UPDATE SET
+         "labels" = (
+           SELECT json_group_array(DISTINCT value) FROM (
+             SELECT value FROM json_each("Chat"."labels")
+             UNION
+             SELECT ?
+           )
+         ),
+         "updatedAt" = ?`,
+      id,
       instanceId,
       chatId,
-      id,
+      initialLabels,
+      now,
+      now,
+      labelId,
+      now,
     );
   }
 
   private async removeLabel(labelId: string, instanceId: string, chatId: string) {
     const id = cuid();
+    const now = new Date().toISOString();
 
     await this.prismaRepository.$executeRawUnsafe(
       `INSERT INTO "Chat" ("id", "instanceId", "remoteJid", "labels", "createdAt", "updatedAt")
-       VALUES ($4, $2, $3, '[]'::jsonb, NOW(), NOW()) ON CONFLICT ("instanceId", "remoteJid")
-     DO
-      UPDATE
-          SET "labels" = COALESCE (
-          (
-          SELECT jsonb_agg(elem)
-          FROM jsonb_array_elements_text("Chat"."labels") AS elem
-          WHERE elem <> $1
-          ),
-          '[]'::jsonb
-          ),
-          "updatedAt" = NOW();`,
-      labelId,
+       VALUES (?, ?, ?, '[]', ?, ?)
+       ON CONFLICT ("instanceId", "remoteJid")
+       DO UPDATE SET
+         "labels" = COALESCE(
+           (
+             SELECT json_group_array(value)
+             FROM json_each("Chat"."labels")
+             WHERE value <> ?
+           ),
+           '[]'
+         ),
+         "updatedAt" = ?`,
+      id,
       instanceId,
       chatId,
-      id,
+      now,
+      now,
+      labelId,
+      now,
     );
   }
 

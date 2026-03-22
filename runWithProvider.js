@@ -5,18 +5,16 @@ const { existsSync } = require('fs');
 dotenv.config();
 
 const { DATABASE_PROVIDER } = process.env;
-const databaseProviderDefault = DATABASE_PROVIDER ?? 'postgresql';
+const databaseProviderDefault = DATABASE_PROVIDER ?? 'sqlite';
 
 if (!DATABASE_PROVIDER) {
   console.warn(`DATABASE_PROVIDER is not set in the .env file, using default: ${databaseProviderDefault}`);
 }
 
-// Função para determinar qual pasta de migrations usar
-// Função para determinar qual pasta de migrations usar
 function getMigrationsFolder(provider) {
   switch (provider) {
-    case 'psql_bouncer':
-      return 'postgresql-migrations'; // psql_bouncer usa as migrations do postgresql
+    case 'sqlite':
+      return 'sqlite-migrations';
     default:
       return `${provider}-migrations`;
   }
@@ -29,7 +27,6 @@ let command = process.argv
   .join(' ')
   .replace(/DATABASE_PROVIDER/g, databaseProviderDefault);
 
-// Substituir referências à pasta de migrations pela pasta correta
 const migrationsPattern = new RegExp(`${databaseProviderDefault}-migrations`, 'g');
 command = command.replace(migrationsPattern, migrationsFolder);
 

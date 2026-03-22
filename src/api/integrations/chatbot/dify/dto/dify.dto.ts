@@ -1,9 +1,9 @@
-import { $Enums } from '@prisma/client';
+import { DifyBotType } from '@api/types/db-enums';
 
 import { BaseChatbotDto, BaseChatbotSettingDto } from '../../base-chatbot.dto';
 
 export class DifyDto extends BaseChatbotDto {
-  botType?: $Enums.DifyBotType;
+  botType?: DifyBotType;
   apiUrl?: string;
   apiKey?: string;
 }

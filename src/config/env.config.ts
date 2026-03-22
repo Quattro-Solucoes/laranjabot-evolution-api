@@ -482,10 +482,10 @@ export class ConfigService {
       },
       DATABASE: {
         CONNECTION: {
-          URI: process.env.DATABASE_CONNECTION_URI || '',
+          URI: process.env.DATABASE_CONNECTION_URI || 'file:./data/evolution.db',
           CLIENT_NAME: process.env.DATABASE_CONNECTION_CLIENT_NAME || 'evolution',
         },
-        PROVIDER: process.env.DATABASE_PROVIDER || 'postgresql',
+        PROVIDER: process.env.DATABASE_PROVIDER || 'sqlite',
         SAVE_DATA: {
           INSTANCE: process.env?.DATABASE_SAVE_DATA_INSTANCE === 'true',
           NEW_MESSAGE: process.env?.DATABASE_SAVE_DATA_NEW_MESSAGE === 'true',

@@ -743,27 +743,27 @@ export class ChannelStartupService {
 
     const results = await this.prismaRepository.$queryRaw`
       WITH rankedMessages AS (
-        SELECT DISTINCT ON ("Message"."key"->>'remoteJid') 
+        SELECT
           "Contact"."id" as "contactId",
-          "Message"."key"->>'remoteJid' as "remoteJid",
+          json_extract("Message"."key", '$.remoteJid') as "remoteJid",
           CASE 
-            WHEN "Message"."key"->>'remoteJid' LIKE '%@g.us' THEN COALESCE("Chat"."name", "Contact"."pushName")
+            WHEN json_extract("Message"."key", '$.remoteJid') LIKE '%@g.us' THEN COALESCE("Chat"."name", "Contact"."pushName")
             ELSE COALESCE("Contact"."pushName", "Message"."pushName")
           END as "pushName",
           "Contact"."profilePicUrl",
           COALESCE(
-            to_timestamp("Message"."messageTimestamp"::double precision), 
+            datetime("Message"."messageTimestamp", 'unixepoch'), 
             "Contact"."updatedAt"
           ) as "updatedAt",
-          "Chat"."name" as "pushName",
+          "Chat"."name" as "chatName",
           "Chat"."createdAt" as "windowStart",
-          "Chat"."createdAt" + INTERVAL '24 hours' as "windowExpires",
+          datetime("Chat"."createdAt", '+24 hours') as "windowExpires",
           "Chat"."unreadMessages" as "unreadMessages",
-          CASE WHEN "Chat"."createdAt" + INTERVAL '24 hours' > NOW() THEN true ELSE false END as "windowActive",
+          CASE WHEN datetime("Chat"."createdAt", '+24 hours') > datetime('now') THEN 1 ELSE 0 END as "windowActive",
           "Message"."id" AS "lastMessageId",
           "Message"."key" AS "lastMessage_key",
           CASE
-            WHEN "Message"."key"->>'fromMe' = 'true' THEN 'Você'
+            WHEN json_extract("Message"."key", '$.fromMe') = 'true' THEN 'Você'
             ELSE "Message"."pushName"
           END AS "lastMessagePushName",
           "Message"."participant" AS "lastMessageParticipant",
@@ -774,17 +774,17 @@ export class ChannelStartupService {
           "Message"."messageTimestamp" AS "lastMessageMessageTimestamp",
           "Message"."instanceId" AS "lastMessageInstanceId",
           "Message"."sessionId" AS "lastMessageSessionId",
-          "Message"."status" AS "lastMessageStatus"
+          "Message"."status" AS "lastMessageStatus",
+          ROW_NUMBER() OVER (PARTITION BY json_extract("Message"."key", '$.remoteJid') ORDER BY "Message"."messageTimestamp" DESC) as rn
         FROM "Message"
-        LEFT JOIN "Contact" ON "Contact"."remoteJid" = "Message"."key"->>'remoteJid' AND "Contact"."instanceId" = "Message"."instanceId"
-        LEFT JOIN "Chat" ON "Chat"."remoteJid" = "Message"."key"->>'remoteJid' AND "Chat"."instanceId" = "Message"."instanceId"
+        LEFT JOIN "Contact" ON "Contact"."remoteJid" = json_extract("Message"."key", '$.remoteJid') AND "Contact"."instanceId" = "Message"."instanceId"
+        LEFT JOIN "Chat" ON "Chat"."remoteJid" = json_extract("Message"."key", '$.remoteJid') AND "Chat"."instanceId" = "Message"."instanceId"
         WHERE "Message"."instanceId" = ${this.instanceId}
-        ${remoteJid ? Prisma.sql`AND "Message"."key"->>'remoteJid' = ${remoteJid}` : Prisma.sql``}
+        ${remoteJid ? Prisma.sql`AND json_extract("Message"."key", '$.remoteJid') = ${remoteJid}` : Prisma.sql``}
         ${timestampFilter}
-        ORDER BY "Message"."key"->>'remoteJid', "Message"."messageTimestamp" DESC
       )
-      SELECT * FROM rankedMessages 
-      ORDER BY "updatedAt" DESC NULLS LAST
+      SELECT * FROM rankedMessages WHERE rn = 1
+      ORDER BY CASE WHEN "updatedAt" IS NULL THEN 1 ELSE 0 END, "updatedAt" DESC
       ${limit}
       ${offset};
     `;

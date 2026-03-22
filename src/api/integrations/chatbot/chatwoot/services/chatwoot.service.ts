@@ -1617,7 +1617,6 @@ export class ChatwootService {
       return;
     }
 
-    // Use raw SQL to avoid JSON path issues
     const result = await this.prismaRepository.$executeRaw`
       UPDATE "Message" 
       SET 
@@ -1627,7 +1626,7 @@ export class ChatwootService {
         "chatwootContactInboxSourceId" = ${chatwootMessageIds.contactInboxSourceId},
         "chatwootIsRead" = ${chatwootMessageIds.isRead || false}
       WHERE "instanceId" = ${instance.instanceId} 
-      AND "key"->>'id' = ${key.id}
+      AND json_extract("key", '$.id') = ${key.id}
     `;
 
     this.logger.verbose(`Update result: ${result} rows affected`);
@@ -1642,11 +1641,10 @@ export class ChatwootService {
   }
 
   private async getMessageByKeyId(instance: InstanceDto, keyId: string): Promise<MessageModel> {
-    // Use raw SQL query to avoid JSON path issues with Prisma
     const messages = await this.prismaRepository.$queryRaw`
       SELECT * FROM "Message" 
       WHERE "instanceId" = ${instance.instanceId} 
-      AND "key"->>'id' = ${keyId}
+      AND json_extract("key", '$.id') = ${keyId}
       LIMIT 1
     `;
 

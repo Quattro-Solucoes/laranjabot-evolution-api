@@ -8,6 +8,7 @@ services:
       - 8080:8080
     volumes:
       - evolution_instances:/evolution/instances
+      - evolution_data:/evolution/prisma/data
     networks:
       - evolution-net
     env_file:
@@ -27,6 +28,7 @@ services:
 
 volumes:
   evolution_instances:
+  evolution_data:
 
 
 networks:

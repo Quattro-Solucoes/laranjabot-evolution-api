@@ -5,7 +5,7 @@ import { WAMonitoringService } from '@api/services/monitor.service';
 import { Events } from '@api/types/wa.types';
 import { Logger } from '@config/logger.config';
 import { BadRequestException } from '@exceptions';
-import { TriggerOperator, TriggerType } from '@prisma/client';
+import { TriggerOperator, TriggerType } from '@api/types/db-enums';
 import { getConversationMessage } from '@utils/getConversationMessage';
 
 import { BaseChatbotDto } from './base-chatbot.dto';
